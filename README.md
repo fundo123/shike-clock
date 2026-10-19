@@ -2,7 +2,7 @@
 
 一枚轻巧的 Windows 桌面时钟。它只有时间和日期两行，背景逐像素透明，可以拖到桌面的任意位置。
 
-**[打开项目介绍页](index.html)** · **[下载 Shike.exe](Shike.exe)**
+**[打开在线介绍页](https://fundo123.github.io/shike-clock/)** · **[下载 Shike.exe](Shike.exe)**
 
 ```text
 12:34:56
