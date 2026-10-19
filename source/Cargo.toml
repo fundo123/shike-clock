@@ -1,0 +1,18 @@
+[package]
+name = "shike-clock"
+version = "1.0.0"
+edition = "2021"
+description = "A tiny transparent native Windows desktop clock"
+license = "MIT"
+build = "build.rs"
+
+[[bin]]
+name = "Shike"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

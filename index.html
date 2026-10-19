@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0e14">
+  <meta name="description" content="拾刻是一枚轻巧、透明、可移动的 Windows 桌面时钟。Rust 原生实现，支持自动配色、置顶与开机启动。">
+  <title>拾刻 Shike Clock — 桌面一隅，时间自明</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0b0e14;--panel:#121720;--line:#ffffff16;--text:#f4f6fa;--muted:#a2aaba;--mint:#9ce8d6;--blue:#a5b9ff;--mono:Bahnschrift,"Segoe UI Variable Display",sans-serif;--cn:"Noto Sans SC Medium","Microsoft YaHei UI",sans-serif}
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(ellipse at 78% 10%,#273044 0,transparent 37%),radial-gradient(ellipse at 8% 55%,#172b2c 0,transparent 32%),var(--bg);color:var(--text);font-family:var(--cn);line-height:1.65}
+    a{color:inherit;text-decoration:none}
+    .wrap{width:min(1100px,calc(100% - 40px));margin:auto}
+    header{height:76px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+    .brand{display:flex;gap:11px;align-items:center;font-weight:650;letter-spacing:.04em}
+    .mark{width:30px;height:30px;border:1px solid #9ce8d67a;border-radius:10px;display:grid;place-items:center;color:var(--mint);font:17px var(--mono);box-shadow:inset 0 0 18px #9ce8d61a}
+    nav{display:flex;gap:26px;color:var(--muted);font-size:14px}nav a:hover{color:var(--text)}
+    .hero{min-height:590px;display:grid;grid-template-columns:1.05fr .95fr;align-items:center;gap:50px;padding:72px 0 82px}
+    .eyebrow{color:var(--mint);font-size:12px;letter-spacing:.18em;text-transform:uppercase}
+    h1{font-size:clamp(48px,7vw,78px);line-height:1.08;letter-spacing:-.055em;margin:20px 0 22px;font-weight:650}
+    h1 span{display:block;color:#d6deeb}
+    .intro{max-width:490px;font-size:17px;color:#b7c0ce;line-height:1.9}
+    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}
+    .button{display:inline-flex;align-items:center;justify-content:center;padding:12px 19px;border-radius:12px;font-size:14px;font-weight:650;transition:transform .2s,background .2s}
+    .button:hover{transform:translateY(-2px)}.primary{background:var(--mint);color:#10201d}.secondary{border:1px solid #ffffff2b;color:#e7ebf2}
+    .meta{margin-top:18px;color:#7f8999;font-size:12px}
+    .showcase{position:relative;padding:22px;border:1px solid #ffffff21;border-radius:26px;background:linear-gradient(145deg,#ffffff12,#ffffff04);box-shadow:0 32px 90px #0008;backdrop-filter:blur(20px)}
+    .showcase-top{display:flex;justify-content:space-between;align-items:center;color:#929bad;font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:17px}
+    .dots{display:flex;gap:5px}.dots i{width:5px;height:5px;border-radius:50%;background:#697386}
+    .desktop{height:245px;border-radius:18px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;background:#10161d;position:relative}
+    .desktop:before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 24% 25%,#375858 0,transparent 55%),radial-gradient(ellipse at 81% 83%,#41426d 0,transparent 48%);opacity:.85}
+    .sample{position:relative;display:flex;align-items:center;padding:0 22px}
+    .sample+ .sample{background:#f2f4f7;justify-content:flex-end}
+    .clock{font-family:var(--mono);font-weight:600;font-size:clamp(24px,3vw,36px);line-height:1.05;letter-spacing:-.035em;color:#f7fafc;text-shadow:0 2px 8px #0008}
+    .sample+ .sample .clock{color:#222a35;text-shadow:0 1px 4px #fff8}
+    .date{font:500 12px/1.7 var(--cn);letter-spacing:.02em;white-space:nowrap;color:#e9eff2;margin-top:5px}
+    .sample+ .sample .date{color:#3d4653}
+    .tiny-label{position:absolute;bottom:13px;left:15px;font-size:10px;letter-spacing:.08em;color:#ffffff91}.sample+ .sample .tiny-label{color:#515b69a8;left:auto;right:15px}
+    .caption{display:flex;justify-content:space-between;margin:14px 1px 0;color:#9da7b6;font-size:12px}
+    .caption strong{color:var(--mint);font-weight:550}
+    section{padding:74px 0;border-top:1px solid var(--line)}
+    .section-head{display:flex;justify-content:space-between;gap:30px;align-items:end;margin-bottom:28px}
+    h2{font-size:30px;letter-spacing:-.035em;margin:0}.section-head p{margin:0;max-width:440px;color:var(--muted);font-size:14px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .feature{padding:21px 20px 23px;background:#ffffff08;border:1px solid var(--line);border-radius:16px;min-height:133px}
+    .feature b{display:block;font-size:15px;margin-bottom:7px}.feature p{margin:0;color:#9ea8b7;font-size:13px;line-height:1.75}
+    .icon{font:18px var(--mono);color:var(--mint);margin-bottom:12px}
+    .download{display:grid;grid-template-columns:1fr auto;align-items:center;gap:24px;padding:30px;border:1px solid #9ce8d635;border-radius:20px;background:linear-gradient(120deg,#9ce8d611,#a5b9ff0d)}
+    .download h2{font-size:25px}.download p{margin:7px 0 0;color:var(--muted);font-size:13px}
+    footer{padding:25px 0 40px;color:#788292;font-size:12px;display:flex;justify-content:space-between;gap:20px}
+    @media(max-width:760px){header{height:66px}nav{gap:15px}.hero{grid-template-columns:1fr;gap:38px;padding:55px 0 62px;min-height:auto}.showcase{max-width:500px;width:100%;margin:auto}.desktop{height:220px}.section-head{display:block}.section-head p{margin-top:10px}.grid{grid-template-columns:1fr 1fr}.download{grid-template-columns:1fr}.download .button{justify-self:start}}
+    @media(max-width:470px){.wrap{width:min(100% - 28px,1100px)}nav{gap:11px;font-size:12px}.desktop{height:185px}.sample{padding:0 13px}.clock{font-size:23px}.date{font-size:10px}.grid{grid-template-columns:1fr}.feature{min-height:auto}.showcase{padding:14px}.hero{padding-top:45px}footer{display:block}footer span{display:block;margin:5px 0}}
+  </style>
+</head>
+<body>
+  <header class="wrap">
+    <a class="brand" href="#top"><span class="mark">时</span><span>拾刻 <span style="color:#8f9aaa;font-weight:450">/ SHIKE</span></span></a>
+    <nav><a href="#features">功能</a><a href="#download">下载</a><a href="https://github.com/fundo123/shike-clock">源码</a></nav>
+  </header>
+  <main id="top" class="wrap">
+    <div class="hero">
+      <div>
+        <div class="eyebrow">A small clock for Windows</div>
+        <h1>桌面一隅，<span>时间自明。</span></h1>
+        <p class="intro">拾刻是一枚轻巧、透明、可以随手放置的桌面时钟。没有多余面板，只留下时间与日期；让它停在你顺眼的位置，安静陪伴每一天。</p>
+        <div class="actions"><a class="button primary" href="Shike.exe">下载 Windows 版 <span style="margin-left:10px">↓</span></a><a class="button secondary" href="https://github.com/fundo123/shike-clock">查看 Rust 源码 ↗</a></div>
+        <div class="meta">Windows 10 / 11 · x64 · 原生 Rust · 无需安装</div>
+      </div>
+      <div class="showcase" aria-label="浅色与深色背景上的时钟预览">
+        <div class="showcase-top"><span>拾刻 · 自动适配</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="desktop">
+          <div class="sample"><div><div class="clock">12:34:56</div><div class="date">10月19日 周1</div></div><span class="tiny-label">深色背景 · 浅色文字</span></div>
+          <div class="sample"><div><div class="clock">12:34:56</div><div class="date">10月19日 周1</div></div><span class="tiny-label">浅色背景 · 深色文字</span></div>
+        </div>
+        <div class="caption"><span>逐像素透明 · 自由拖动</span><strong>轻一点，刚刚好。</strong></div>
+      </div>
+    </div>
+    <section id="features">
+      <div class="section-head"><h2>只做时间该做的事</h2><p>小、清楚、放得开。拾刻把日常要看的信息，放在桌面最合适的位置。</p></div>
+      <div class="grid">
+        <article class="feature"><div class="icon">01</div><b>透明悬浮</b><p>逐像素透明，不遮住壁纸与窗口。拖到桌面或任务栏附近，自由摆放。</p></article>
+        <article class="feature"><div class="icon">02</div><b>自动明暗</b><p>按背景亮度切换浅色或深色文字，也可以固定颜色或从调色板自选。</p></article>
+        <article class="feature"><div class="icon">03</div><b>始终置顶</b><p>让时间保持在其他普通窗口之上；右键菜单也可随时关闭置顶。</p></article>
+        <article class="feature"><div class="icon">04</div><b>开机启动</b><p>支持当前 Windows 用户登录后自动启动，不需要管理员权限。</p></article>
+        <article class="feature"><div class="icon">05</div><b>轻巧原生</b><p>Rust 与 Windows 原生 API 实现，不联网、不依赖外部服务。</p></article>
+        <article class="feature"><div class="icon">06</div><b>托盘与快捷找回</b><p>托盘菜单管理设置；再次运行程序即可把时钟找回到屏幕中。</p></article>
+      </div>
+    </section>
+    <section id="download">
+      <div class="download"><div><h2>把时间放回桌面</h2><p>下载后双击 Shike.exe 即可运行。源码、构建说明与 MIT 许可证均在仓库中。</p></div><a class="button primary" href="Shike.exe">下载 Shike.exe　↓</a></div>
+    </section>
+  </main>
+  <footer class="wrap"><span>拾刻 Shike Clock · 由 Rust 构建</span><span>MIT License · 开源、轻巧、透明</span></footer>
+</body>
+</html>
