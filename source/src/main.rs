@@ -133,6 +133,15 @@ impl App {
             );
         }
     }
+    fn raise_if_topmost(&self) {
+        if self.settings.topmost {
+            unsafe {
+                // A drag can leave the taskbar above a topmost window in the
+                // z-order. Reinsert the clock at the top when the drag ends.
+                SetWindowPos(self.hwnd, -1, 0, 0, 0, 0, 0x0013);
+            }
+        }
+    }
     fn reset(&mut self) {
         unsafe {
             let area = work_area(0);
@@ -410,6 +419,7 @@ unsafe extern "system" fn wndproc(hwnd: Handle, msg: u32, w: usize, l: isize) ->
         }
         0x0232 => {
             (*ptr).clamp();
+            (*ptr).raise_if_topmost();
             (*ptr).remember();
             (*ptr).tick(true);
             0
