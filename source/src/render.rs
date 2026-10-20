@@ -275,7 +275,7 @@ impl Renderer {
                 self.date_font.0,
                 &RectF {
                     x: 16. * sf,
-                    y: 44. * sf,
+                    y: 40. * sf,
                     width: 148. * sf,
                     height: 28. * sf,
                 },
@@ -292,7 +292,7 @@ impl Renderer {
                 sw as usize,
                 0,
                 (42. * sf).ceil() as usize,
-                (44. * sf).floor() as usize,
+                (40. * sf).floor() as usize,
                 (72. * sf).ceil() as usize,
             );
             for y in 0..h as usize {
@@ -575,7 +575,7 @@ mod tests {
         let pixels = r.surface.data();
         let w = r.surface.width as usize;
         let time_end = (42. * r.factor).round() as usize;
-        let date_start = (46. * r.factor).round() as usize;
+        let date_start = (42. * r.factor).round() as usize;
         assert!(pixels[..w * time_end].iter().any(|p| *p >> 24 > 180));
         assert!(pixels[w * date_start..].iter().any(|p| *p >> 24 > 180));
     }
@@ -603,7 +603,7 @@ mod tests {
         let h = r.surface.height as usize;
         assert!(pixels.iter().filter(|p| **p >> 24 <= 3).count() > pixels.len() / 2);
         let time_end = (42. * r.factor).round() as usize;
-        let date_start = (46. * r.factor).round() as usize;
+        let date_start = (42. * r.factor).round() as usize;
         assert!(pixels[..w * time_end].iter().any(|p| *p >> 24 > 200));
         assert!(pixels[w * date_start..].iter().any(|p| *p >> 24 > 180));
         assert!(pixels[..w].iter().all(|p| *p >> 24 <= 3));
