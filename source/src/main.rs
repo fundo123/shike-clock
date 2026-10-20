@@ -551,7 +551,7 @@ fn run() -> Result<(), String> {
         } else {
             0xf4f6f9
         };
-        renderer.draw(SystemTime::default(), color)?;
+        renderer.draw(OnlineClock::new(fetch_beijing_time()?).now(), color)?;
         return renderer.surface.save_png(path);
     }
     unsafe {
