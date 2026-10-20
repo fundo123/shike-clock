@@ -251,7 +251,6 @@ extern "system" {
 #[link(name = "kernel32")]
 extern "system" {
     pub fn GetModuleHandleW(name: *const u16) -> Handle;
-    pub fn GetLocalTime(time: *mut SystemTime);
     pub fn GetLastError() -> u32;
 }
 #[link(name = "advapi32")]
@@ -363,11 +362,6 @@ pub fn wide(value: &str) -> Vec<u16> {
 // MAKEINTRESOURCEW: Win32 encodes an integer resource identifier in the pointer value.
 pub fn resource(id: u16) -> *const u16 {
     id as usize as *const u16
-}
-pub fn local_time() -> SystemTime {
-    let mut t = SystemTime::default();
-    unsafe { GetLocalTime(&mut t) };
-    t
 }
 pub fn work_area(hwnd: Handle) -> Rect {
     monitor_area(hwnd, true)

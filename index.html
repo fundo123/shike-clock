@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b0e14">
-  <meta name="description" content="拾刻是一枚轻巧、透明、可移动的 Windows 桌面时钟。Rust 原生实现，支持自动配色、置顶与开机启动。">
+  <meta name="description" content="拾刻是一枚轻巧、透明、可移动的 Windows 桌面时钟，显示在线北京时间。Rust 原生实现，支持自动配色、置顶与开机启动。">
   <title>拾刻 Shike Clock — 桌面一隅，时间自明</title>
   <style>
     :root{color-scheme:dark;--bg:#0b0e14;--panel:#121720;--line:#ffffff16;--text:#f4f6fa;--muted:#a2aaba;--mint:#9ce8d6;--blue:#a5b9ff;--mono:Bahnschrift,"Segoe UI Variable Display",sans-serif;--cn:"Noto Sans SC Medium","Microsoft YaHei UI",sans-serif}
@@ -63,9 +63,9 @@
       <div>
         <div class="eyebrow">A small clock for Windows</div>
         <h1>桌面一隅，<span>时间自明。</span></h1>
-        <p class="intro">拾刻是一枚轻巧、透明、可以随手放置的桌面时钟。没有多余面板，只留下时间与日期；让它停在你顺眼的位置，安静陪伴每一天。</p>
+        <p class="intro">拾刻是一枚轻巧、透明、可以随手放置的桌面时钟。在线获取北京时间，没有多余面板，只留下时间与日期；让它停在你顺眼的位置，安静陪伴每一天。</p>
         <div class="actions"><a class="button primary" href="Shike.exe">下载 Windows 版 <span style="margin-left:10px">↓</span></a><a class="button secondary" href="https://github.com/fundo123/shike-clock">查看 Rust 源码 ↗</a></div>
-        <div class="meta">Windows 10 / 11 · x64 · 原生 Rust · 无需安装</div>
+        <div class="meta">Windows 10 / 11 · x64 · 原生 Rust · 在线校时 · 无需安装</div>
       </div>
       <div class="showcase" aria-label="浅色与深色背景上的时钟预览">
         <div class="showcase-top"><span>拾刻 · 自动适配</span><span class="dots"><i></i><i></i><i></i></span></div>
@@ -83,12 +83,12 @@
         <article class="feature"><div class="icon">02</div><b>自动明暗</b><p>按背景亮度切换浅色或深色文字，也可以固定颜色或从调色板自选。</p></article>
         <article class="feature"><div class="icon">03</div><b>始终置顶</b><p>拖动结束后重新置顶，放在任务栏上也能保持可见；右键菜单可随时关闭置顶。</p></article>
         <article class="feature"><div class="icon">04</div><b>开机启动</b><p>支持当前 Windows 用户登录后自动启动，不需要管理员权限。</p></article>
-        <article class="feature"><div class="icon">05</div><b>轻巧原生</b><p>Rust 与 Windows 原生 API 实现，不联网、不依赖外部服务。</p></article>
+        <article class="feature"><div class="icon">05</div><b>在线北京时间</b><p>通过 HTTPS 获取北京时间和日期，每 15 分钟校准；断网时沿用最近一次校准继续走秒。</p></article>
         <article class="feature"><div class="icon">06</div><b>托盘与快捷找回</b><p>托盘菜单管理设置；再次运行程序即可把时钟找回到屏幕中。</p></article>
       </div>
     </section>
     <section id="download">
-      <div class="download"><div><h2>把时间放回桌面</h2><p>下载后双击 Shike.exe 即可运行。源码、构建说明与 MIT 许可证均在仓库中。</p></div><a class="button primary" href="Shike.exe">下载 Shike.exe　↓</a></div>
+      <div class="download"><div><h2>把时间放回桌面</h2><p>下载后双击 Shike.exe 即可运行。在线获取北京时间，源码、构建说明与 MIT 许可证均在仓库中。</p></div><a class="button primary" href="Shike.exe">下载 Shike.exe　↓</a></div>
     </section>
   </main>
   <footer class="wrap"><span>拾刻 Shike Clock · 由 Rust 构建</span><span>MIT License · 开源、轻巧、透明</span></footer>

@@ -199,7 +199,12 @@ impl Renderer {
             factor,
             time_font: Font::semibold(64. * factor)?,
             date_font: Font::new(
-                &["Noto Sans SC Medium", "等线", "Microsoft YaHei UI", "Segoe UI"],
+                &[
+                    "Noto Sans SC Medium",
+                    "等线",
+                    "Microsoft YaHei UI",
+                    "Segoe UI",
+                ],
                 34. * factor,
             )?,
         })
@@ -236,7 +241,11 @@ impl Renderer {
             GdipSetStringFormatAlign(format, 0);
             GdipCreateSolidFill(0xffffffff, &mut brush);
             let sf = self.factor * 2.;
-            let text = format!("{:02}:{:02}:{:02}", t.hour, t.minute, t.second);
+            let text = if t.year == 0 {
+                "--:--:--".to_string()
+            } else {
+                format!("{:02}:{:02}:{:02}", t.hour, t.minute, t.second)
+            };
             let mut x = 16.;
             let mut status = 0;
             for c in text.chars() {
@@ -254,12 +263,11 @@ impl Renderer {
             GdipDeleteBrush(brush);
             GdipCreateSolidFill(0xebffffff, &mut brush);
             GdipSetStringFormatAlign(format, 0);
-            let date = wide(&format!(
-                "{}月{}日  周{}",
-                t.month,
-                t.day,
-                weekday(t.weekday)
-            ));
+            let date = wide(&if t.year == 0 {
+                "--月--日  周-".to_string()
+            } else {
+                format!("{}月{}日  周{}", t.month, t.day, weekday(t.weekday))
+            });
             status |= GdipDrawString(
                 g,
                 date.as_ptr(),
@@ -415,9 +423,10 @@ fn match_row_width(
         }
         (left < right).then_some((left, right))
     };
-    let (Some((target_left, target_right)), Some((source_left, source_right))) =
-        (bounds(pixels, time_top, time_bottom), bounds(pixels, date_top, date_bottom))
-    else {
+    let (Some((target_left, target_right)), Some((source_left, source_right))) = (
+        bounds(pixels, time_top, time_bottom),
+        bounds(pixels, date_top, date_bottom),
+    ) else {
         return;
     };
     let target_width = target_right - target_left;
@@ -514,16 +523,14 @@ mod tests {
     fn date_row_is_left_aligned_and_matches_time_width() {
         let mut pixels = vec![0; 12 * 4];
         for x in 2..9 {
-            pixels[1 * 12 + x] = 0xffff_ffff;
+            pixels[12 + x] = 0xffff_ffff;
         }
         for x in 6..10 {
             pixels[2 * 12 + x] = 0xffff_ffff;
         }
         match_row_width(&mut pixels, 12, 1, 2, 2, 3);
         let find = |y: usize| {
-            let xs: Vec<_> = (0..12)
-                .filter(|x| pixels[y * 12 + x] >> 24 != 0)
-                .collect();
+            let xs: Vec<_> = (0..12).filter(|x| pixels[y * 12 + x] >> 24 != 0).collect();
             (*xs.first().unwrap(), *xs.last().unwrap())
         };
         assert_eq!(find(1), (2, 8));
@@ -560,6 +567,19 @@ mod tests {
             Some(243)
         );
     }
+    #[test]
+    fn offline_placeholder_keeps_the_two_line_layout() {
+        let _gdip = GdiPlus::start().unwrap();
+        let mut r = Renderer::new(96, 100).unwrap();
+        r.draw(SystemTime::default(), 0xf4f6f9).unwrap();
+        let pixels = r.surface.data();
+        let w = r.surface.width as usize;
+        let time_end = (42. * r.factor).round() as usize;
+        let date_start = (46. * r.factor).round() as usize;
+        assert!(pixels[..w * time_end].iter().any(|p| *p >> 24 > 180));
+        assert!(pixels[w * date_start..].iter().any(|p| *p >> 24 > 180));
+    }
+
     #[test]
     fn rendered_clock_has_transparency_and_two_rows() {
         let _gdip = GdiPlus::start().unwrap();

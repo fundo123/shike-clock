@@ -1,12 +1,17 @@
 #![cfg_attr(not(test), windows_subsystem = "windows")]
+mod online_time;
 mod render;
 mod settings;
 mod win;
+use online_time::{fetch_beijing_time, retry_interval, sync_interval, OnlineClock};
 use render::{GdiPlus, Renderer};
 use settings::{auto_light, clamp_position, ColorMode, Settings};
 use std::{
     mem::size_of,
     ptr::{null, null_mut},
+    sync::mpsc::{self, Receiver, Sender, TryRecvError},
+    thread,
+    time::Instant,
 };
 use win::*;
 
@@ -35,6 +40,11 @@ struct App {
     taskbar_message: u32,
     diagnostics: Option<String>,
     error: Option<String>,
+    online_clock: Option<OnlineClock>,
+    sync_sender: Sender<Result<i64, String>>,
+    sync_receiver: Receiver<Result<i64, String>>,
+    sync_pending: bool,
+    sync_due: Instant,
 }
 impl App {
     fn color(&self) -> u32 {
@@ -52,11 +62,20 @@ impl App {
         }
     }
     fn tick(&mut self, force: bool) {
-        let t = local_time();
-        let key = ((t.year as u64 * 13 + t.month as u64) * 32 + t.day as u64) * 86400
-            + t.hour as u64 * 3600
-            + t.minute as u64 * 60
-            + t.second as u64;
+        self.update_online_clock();
+        let t = self
+            .online_clock
+            .as_ref()
+            .map(OnlineClock::now)
+            .unwrap_or_default();
+        let key = if t.year == 0 {
+            0
+        } else {
+            ((t.year as u64 * 13 + t.month as u64) * 32 + t.day as u64) * 86400
+                + t.hour as u64 * 3600
+                + t.minute as u64 * 60
+                + t.second as u64
+        };
         if !force && key == self.last {
             return;
         }
@@ -78,15 +97,60 @@ impl App {
             self.error = Some(e)
         }
         if self.diagnostics.is_some() {
-            self.write_diagnostics(brightness)
+            self.write_diagnostics(t, brightness)
         }
     }
-    fn write_diagnostics(&self, brightness: Option<u8>) {
+    fn update_online_clock(&mut self) {
+        match self.sync_receiver.try_recv() {
+            Ok(Ok(unix_millis)) => {
+                self.online_clock = Some(OnlineClock::new(unix_millis));
+                self.sync_pending = false;
+                self.sync_due = Instant::now() + sync_interval();
+            }
+            Ok(Err(_)) => {
+                self.sync_pending = false;
+                self.sync_due = Instant::now() + retry_interval();
+            }
+            Err(TryRecvError::Disconnected) => {
+                self.sync_pending = false;
+                self.sync_due = Instant::now() + retry_interval();
+            }
+            Err(TryRecvError::Empty) => {}
+        }
+        if !self.sync_pending && Instant::now() >= self.sync_due {
+            self.sync_pending = true;
+            self.sync_due = Instant::now() + retry_interval();
+            let sender = self.sync_sender.clone();
+            thread::spawn(move || {
+                let _ = sender.send(fetch_beijing_time());
+            });
+        }
+    }
+    fn write_diagnostics(&self, t: SystemTime, brightness: Option<u8>) {
         if let Some(ref path) = self.diagnostics {
-            let t = local_time();
             let mut r = Rect::default();
             unsafe { GetWindowRect(self.hwnd, &mut r) };
-            let data=format!("{{\"time\":\"{:02}:{:02}:{:02}\",\"date\":\"{}月{}日 周{}\",\"light_text\":{},\"brightness\":{},\"color\":\"{:06X}\",\"x\":{},\"y\":{},\"width\":{},\"height\":{},\"dpi\":{},\"scale\":{},\"error\":{}}}",t.hour,t.minute,t.second,t.month,t.day,settings::weekday(t.weekday),self.light,brightness.map(|v|v.to_string()).unwrap_or("null".into()),self.color(),r.left,r.top,self.renderer.surface.width,self.renderer.surface.height,unsafe{GetDpiForWindow(self.hwnd)},self.settings.scale,if self.error.is_some(){"true"}else{"null"});
+            let time = if t.year == 0 {
+                "--:--:--".to_string()
+            } else {
+                format!("{:02}:{:02}:{:02}", t.hour, t.minute, t.second)
+            };
+            let date = if t.year == 0 {
+                "--月--日 周-".to_string()
+            } else {
+                format!(
+                    "{}月{}日 周{}",
+                    t.month,
+                    t.day,
+                    settings::weekday(t.weekday)
+                )
+            };
+            let source = if t.year == 0 {
+                "waiting_for_network"
+            } else {
+                "online"
+            };
+            let data=format!("{{\"time\":\"{}\",\"date\":\"{}\",\"time_source\":\"{}\",\"light_text\":{},\"brightness\":{},\"color\":\"{:06X}\",\"x\":{},\"y\":{},\"width\":{},\"height\":{},\"dpi\":{},\"scale\":{},\"error\":{}}}",time,date,source,self.light,brightness.map(|v|v.to_string()).unwrap_or("null".into()),self.color(),r.left,r.top,self.renderer.surface.width,self.renderer.surface.height,unsafe{GetDpiForWindow(self.hwnd)},self.settings.scale,if self.error.is_some(){"true"}else{"null"});
             let _ = std::fs::write(path, data);
         }
     }
@@ -223,15 +287,14 @@ fn sync_startup(enabled: bool) -> Result<(), String> {
         let value_name = wide("ShikeClock");
         let status = if enabled {
             let mut command = startup_command.unwrap();
-            let result = RegSetValueExW(
+            RegSetValueExW(
                 key,
                 value_name.as_ptr(),
                 0,
                 1,
                 command.as_mut_ptr().cast(),
                 (command.len() * 2) as u32,
-            );
-            result
+            )
         } else {
             let result = RegDeleteValueW(key, value_name.as_ptr());
             if result == 2 {
@@ -488,7 +551,7 @@ fn run() -> Result<(), String> {
         } else {
             0xf4f6f9
         };
-        renderer.draw(local_time(), color)?;
+        renderer.draw(SystemTime::default(), color)?;
         return renderer.surface.save_png(path);
     }
     unsafe {
@@ -521,6 +584,7 @@ fn run() -> Result<(), String> {
         }
         let settings = Settings::load();
         sync_startup(settings.autostart)?;
+        let (sync_sender, sync_receiver) = mpsc::channel();
         let area = work_area(0);
         let initial = if settings.placed {
             (settings.x, settings.y)
@@ -528,10 +592,7 @@ fn run() -> Result<(), String> {
             (area.right - 132, area.top + 48)
         };
         let hwnd = CreateWindowExW(
-            0x00080000
-                | 0x00000080
-                | 0x08000000
-                | if settings.topmost { 0x00000008 } else { 0 },
+            0x00080000 | 0x00000080 | 0x08000000 | if settings.topmost { 0x00000008 } else { 0 },
             class.as_ptr(),
             title.as_ptr(),
             0x80000000,
@@ -568,6 +629,11 @@ fn run() -> Result<(), String> {
             taskbar_message: RegisterWindowMessageW(wide("TaskbarCreated").as_ptr()),
             diagnostics,
             error: None,
+            online_clock: None,
+            sync_sender,
+            sync_receiver,
+            sync_pending: false,
+            sync_due: Instant::now(),
         });
         let ptr = &mut *app as *mut App;
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, ptr as isize);

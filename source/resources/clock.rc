@@ -2,8 +2,8 @@
 1 ICON "resources/clock.ico"
 1 24 "resources/clock.manifest"
 1 VERSIONINFO
- FILEVERSION 1,0,0,0
- PRODUCTVERSION 1,0,0,0
+ FILEVERSION 1,1,0,0
+ PRODUCTVERSION 1,1,0,0
  FILEFLAGSMASK 0x3fL
  FILEFLAGS 0x0L
  FILEOS 0x40004L
@@ -15,11 +15,11 @@ BEGIN
   BLOCK "080404b0"
   BEGIN
    VALUE "FileDescription", "拾刻 · 透明桌面时钟\0"
-   VALUE "FileVersion", "1.0.0\0"
+   VALUE "FileVersion", "1.1.0\0"
    VALUE "InternalName", "Shike\0"
    VALUE "OriginalFilename", "Shike.exe\0"
    VALUE "ProductName", "拾刻\0"
-   VALUE "ProductVersion", "1.0.0\0"
+   VALUE "ProductVersion", "1.1.0\0"
   END
  END
  BLOCK "VarFileInfo"
