@@ -5,6 +5,8 @@ use std::{
     slice,
 };
 
+const ROW_STEP: f32 = 40.;
+
 fn checked(status: i32, what: &str) -> Result<(), String> {
     if status == 0 {
         Ok(())
@@ -250,7 +252,7 @@ impl Renderer {
             let sf = self.factor * 2.;
             let mut status = 0;
             for (row, time) in [local, beijing].iter().enumerate() {
-                let row_y = 3. + row as f32 * 48.;
+                let row_y = 3. + row as f32 * ROW_STEP;
                 let clock = time_text(*time);
                 let mut x = 10.;
                 for c in clock.chars() {
@@ -506,7 +508,7 @@ mod tests {
             .unwrap();
         let pixels = r.surface.data();
         let w = r.surface.width as usize;
-        let second_row = (48. * r.factor).round() as usize;
+        let second_row = (ROW_STEP * r.factor).round() as usize;
         assert!(pixels[..w * second_row].iter().any(|p| *p >> 24 > 180));
         assert!(pixels[w * second_row..].iter().any(|p| *p >> 24 > 180));
     }
@@ -544,7 +546,7 @@ mod tests {
         let w = r.surface.width as usize;
         let h = r.surface.height as usize;
         assert!(pixels.iter().filter(|p| **p >> 24 <= 3).count() > pixels.len() / 2);
-        let second_row = (48. * r.factor).round() as usize;
+        let second_row = (ROW_STEP * r.factor).round() as usize;
         assert!(pixels[..w * second_row].iter().any(|p| *p >> 24 > 200));
         assert!(pixels[w * second_row..].iter().any(|p| *p >> 24 > 180));
         let row_bounds = |start: usize, end: usize| {
