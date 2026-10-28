@@ -279,7 +279,7 @@ impl Renderer {
                     (date.len() - 1) as i32,
                     self.detail_font.0,
                     &RectF {
-                        x: 140. * sf,
+                        x: 124. * sf,
                         y: row_y * sf,
                         width: 170. * sf,
                         height: 25. * sf,
