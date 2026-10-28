@@ -249,26 +249,10 @@ impl Renderer {
             GdipCreateSolidFill(0xebffffff, &mut detail_brush);
             let sf = self.factor * 2.;
             let mut status = 0;
-            for (row, (label, time)) in [("本地", local), ("北京", beijing)].iter().enumerate()
-            {
+            for (row, time) in [local, beijing].iter().enumerate() {
                 let row_y = 3. + row as f32 * 48.;
-                let label_text = wide(label);
-                status |= GdipDrawString(
-                    g,
-                    label_text.as_ptr(),
-                    (label_text.len() - 1) as i32,
-                    self.detail_font.0,
-                    &RectF {
-                        x: 10. * sf,
-                        y: (row_y + 9.) * sf,
-                        width: 42. * sf,
-                        height: 25. * sf,
-                    },
-                    format,
-                    detail_brush,
-                );
                 let clock = time_text(*time);
-                let mut x = 58.;
+                let mut x = 10.;
                 for c in clock.chars() {
                     let cell = if c == ':' { 7.5 } else { 14. };
                     let character = wide(&c.to_string());
@@ -295,9 +279,9 @@ impl Renderer {
                     (date.len() - 1) as i32,
                     self.detail_font.0,
                     &RectF {
-                        x: 166. * sf,
+                        x: 140. * sf,
                         y: (row_y + 9.) * sf,
-                        width: 184. * sf,
+                        width: 170. * sf,
                         height: 25. * sf,
                     },
                     format,
@@ -563,6 +547,23 @@ mod tests {
         let second_row = (48. * r.factor).round() as usize;
         assert!(pixels[..w * second_row].iter().any(|p| *p >> 24 > 200));
         assert!(pixels[w * second_row..].iter().any(|p| *p >> 24 > 180));
+        let row_bounds = |start: usize, end: usize| {
+            let mut left = w;
+            let mut right = 0;
+            for y in start..end {
+                for x in 0..w {
+                    if pixels[y * w + x] >> 24 > 30 {
+                        left = left.min(x);
+                        right = right.max(x);
+                    }
+                }
+            }
+            (left, right)
+        };
+        let first_bounds = row_bounds(0, second_row);
+        let second_bounds = row_bounds(second_row, h);
+        assert_eq!(first_bounds.0, second_bounds.0);
+        assert!(first_bounds.1.abs_diff(second_bounds.1) <= 1);
         assert!(pixels[..w].iter().all(|p| *p >> 24 <= 3));
         assert!(pixels[(h - 1) * w..].iter().all(|p| *p >> 24 <= 3));
     }

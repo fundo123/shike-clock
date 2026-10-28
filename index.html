@@ -33,10 +33,8 @@
     .sample{position:relative;display:flex;align-items:center;padding:0 22px}
     .sample+ .sample{background:#f2f4f7}
     .clock-set{width:100%;display:grid;gap:12px}
-    .clock-row{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
-    .zone{font:500 10px var(--cn);color:#d5dce5b8}
+    .clock-row{display:grid;grid-template-columns:108px max-content;align-items:baseline;column-gap:10px;white-space:nowrap}
     .clock{font-family:var(--mono);font-weight:600;font-size:19px;line-height:1;letter-spacing:-.035em;color:#f7fafc;text-shadow:0 2px 8px #0008}
-    .sample+ .sample .zone{color:#515b69}
     .sample+ .sample .clock{color:#222a35;text-shadow:0 1px 4px #fff8}
     .date{font:500 10px/1.2 var(--cn);letter-spacing:.01em;white-space:nowrap;color:#e9eff2}
     .sample+ .sample .date{color:#3d4653}
@@ -54,7 +52,7 @@
     .download h2{font-size:25px}.download p{margin:7px 0 0;color:var(--muted);font-size:13px}
     footer{padding:25px 0 40px;color:#788292;font-size:12px;display:flex;justify-content:space-between;gap:20px}
     @media(max-width:760px){header{height:66px}nav{gap:15px}.hero{grid-template-columns:1fr;gap:38px;padding:55px 0 62px;min-height:auto}.showcase{max-width:500px;width:100%;margin:auto}.desktop{height:220px}.section-head{display:block}.section-head p{margin-top:10px}.grid{grid-template-columns:1fr 1fr}.download{grid-template-columns:1fr}.download .button{justify-self:start}}
-    @media(max-width:470px){.wrap{width:min(100% - 28px,1100px)}nav{gap:11px;font-size:12px}.desktop{height:185px}.sample{padding:0 8px}.clock-row{gap:4px}.zone{font-size:8px}.clock{font-size:15px}.date{font-size:8px}.grid{grid-template-columns:1fr}.feature{min-height:auto}.showcase{padding:14px}.hero{padding-top:45px}footer{display:block}footer span{display:block;margin:5px 0}}
+    @media(max-width:470px){.wrap{width:min(100% - 28px,1100px)}nav{gap:11px;font-size:12px}.desktop{height:185px}.sample{padding:0 8px}.clock-row{grid-template-columns:84px max-content;column-gap:4px}.clock{font-size:15px}.date{font-size:8px}.grid{grid-template-columns:1fr}.feature{min-height:auto}.showcase{padding:14px}.hero{padding-top:45px}footer{display:block}footer span{display:block;margin:5px 0}}
   </style>
 </head>
 <body>
@@ -74,8 +72,8 @@
       <div class="showcase" aria-label="深浅背景上的本地时间与北京时间并列预览">
         <div class="showcase-top"><span>拾刻 · 自动适配</span><span class="dots"><i></i><i></i><i></i></span></div>
         <div class="desktop">
-          <div class="sample"><div class="clock-set"><div class="clock-row"><span class="zone">本地</span><span class="clock">14:03:19</span><span class="date">10月28日 周3</span></div><div class="clock-row"><span class="zone">北京</span><span class="clock">05:03:19</span><span class="date">10月29日 周4</span></div></div><span class="tiny-label">深色背景 · 浅色文字</span></div>
-          <div class="sample"><div class="clock-set"><div class="clock-row"><span class="zone">本地</span><span class="clock">14:03:19</span><span class="date">10月28日 周3</span></div><div class="clock-row"><span class="zone">北京</span><span class="clock">05:03:19</span><span class="date">10月29日 周4</span></div></div><span class="tiny-label">浅色背景 · 深色文字</span></div>
+          <div class="sample"><div class="clock-set"><div class="clock-row"><span class="clock">14:03:19</span><span class="date">10月28日 周3</span></div><div class="clock-row"><span class="clock">05:03:19</span><span class="date">10月29日 周4</span></div></div><span class="tiny-label">深色背景 · 浅色文字</span></div>
+          <div class="sample"><div class="clock-set"><div class="clock-row"><span class="clock">14:03:19</span><span class="date">10月28日 周3</span></div><div class="clock-row"><span class="clock">05:03:19</span><span class="date">10月29日 周4</span></div></div><span class="tiny-label">浅色背景 · 深色文字</span></div>
         </div>
         <div class="caption"><span>逐像素透明 · 自由拖动</span><strong>轻一点，刚刚好。</strong></div>
       </div>
