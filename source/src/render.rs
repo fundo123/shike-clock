@@ -280,7 +280,7 @@ impl Renderer {
                     self.detail_font.0,
                     &RectF {
                         x: 140. * sf,
-                        y: (row_y + 9.) * sf,
+                        y: row_y * sf,
                         width: 170. * sf,
                         height: 25. * sf,
                     },
@@ -564,6 +564,22 @@ mod tests {
         let second_bounds = row_bounds(second_row, h);
         assert_eq!(first_bounds.0, second_bounds.0);
         assert!(first_bounds.1.abs_diff(second_bounds.1) <= 1);
+        let vertical_bounds = |start: usize, end: usize, x_start: usize, x_end: usize| {
+            let mut top = h;
+            let mut bottom = 0;
+            for y in start..end {
+                for x in x_start..x_end {
+                    if pixels[y * w + x] >> 24 > 40 {
+                        top = top.min(y);
+                        bottom = bottom.max(y);
+                    }
+                }
+            }
+            (top, bottom)
+        };
+        let clock_bounds = vertical_bounds(0, second_row, 0, 80);
+        let date_bounds = vertical_bounds(0, second_row, 80, w);
+        assert!((clock_bounds.0 + clock_bounds.1).abs_diff(date_bounds.0 + date_bounds.1) <= 1);
         assert!(pixels[..w].iter().all(|p| *p >> 24 <= 3));
         assert!(pixels[(h - 1) * w..].iter().all(|p| *p >> 24 <= 3));
     }
