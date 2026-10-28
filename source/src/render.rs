@@ -1,4 +1,4 @@
-use crate::{settings::weekday, win::*};
+use crate::{date_text, time_text, win::*};
 use std::{
     ffi::c_void,
     ptr::{null, null_mut},
@@ -184,32 +184,37 @@ pub struct Renderer {
     mask: Vec<u8>,
     factor: f32,
     time_font: Font,
-    date_font: Font,
+    detail_font: Font,
 }
 impl Renderer {
     pub fn new(dpi: u32, scale: u32) -> Result<Self, String> {
         // Keep the compact composition at 62.5% of its original size.
         let factor = (dpi.max(96) as f32 / 96.) * (scale as f32 / 100.) * 0.625;
-        let w = (168. * factor).round() as i32;
-        let h = (72. * factor).round() as i32;
+        let w = (320. * factor).round() as i32;
+        let h = (100. * factor).round() as i32;
         Ok(Self {
             surface: Surface::new(w, h)?,
             capture: Surface::new(w, h)?,
             mask: vec![0; (w * h) as usize],
             factor,
-            time_font: Font::semibold(64. * factor)?,
-            date_font: Font::new(
+            time_font: Font::semibold(52. * factor)?,
+            detail_font: Font::new(
                 &[
                     "Noto Sans SC Medium",
                     "等线",
                     "Microsoft YaHei UI",
                     "Segoe UI",
                 ],
-                34. * factor,
+                32. * factor,
             )?,
         })
     }
-    pub fn draw(&mut self, t: SystemTime, color: u32) -> Result<(), String> {
+    pub fn draw(
+        &mut self,
+        local: SystemTime,
+        beijing: SystemTime,
+        color: u32,
+    ) -> Result<(), String> {
         unsafe {
             let w = self.surface.width;
             let h = self.surface.height;
@@ -236,65 +241,75 @@ impl Renderer {
             GdipSetTextRenderingHint(g, 4);
             GdipSetSmoothingMode(g, 4);
             let mut format = null_mut();
-            let mut brush = null_mut();
+            let mut time_brush = null_mut();
+            let mut detail_brush = null_mut();
             GdipCreateStringFormat(0x1000 | 0x4000, 0, &mut format);
             GdipSetStringFormatAlign(format, 0);
-            GdipCreateSolidFill(0xffffffff, &mut brush);
+            GdipCreateSolidFill(0xffffffff, &mut time_brush);
+            GdipCreateSolidFill(0xebffffff, &mut detail_brush);
             let sf = self.factor * 2.;
-            let text = if t.year == 0 {
-                "--:--:--".to_string()
-            } else {
-                format!("{:02}:{:02}:{:02}", t.hour, t.minute, t.second)
-            };
-            let mut x = 16.;
             let mut status = 0;
-            for c in text.chars() {
-                let cell = if c == ':' { 9. } else { 17. };
-                let s = wide(&c.to_string());
-                let rect = RectF {
-                    x: x * sf,
-                    y: 0.,
-                    width: cell * sf,
-                    height: 42. * sf,
-                };
-                status |= GdipDrawString(g, s.as_ptr(), 1, self.time_font.0, &rect, format, brush);
-                x += cell;
+            for (row, (label, time)) in [("本地", local), ("北京", beijing)].iter().enumerate()
+            {
+                let row_y = 3. + row as f32 * 48.;
+                let label_text = wide(label);
+                status |= GdipDrawString(
+                    g,
+                    label_text.as_ptr(),
+                    (label_text.len() - 1) as i32,
+                    self.detail_font.0,
+                    &RectF {
+                        x: 10. * sf,
+                        y: (row_y + 9.) * sf,
+                        width: 42. * sf,
+                        height: 25. * sf,
+                    },
+                    format,
+                    detail_brush,
+                );
+                let clock = time_text(*time);
+                let mut x = 58.;
+                for c in clock.chars() {
+                    let cell = if c == ':' { 7.5 } else { 14. };
+                    let character = wide(&c.to_string());
+                    status |= GdipDrawString(
+                        g,
+                        character.as_ptr(),
+                        1,
+                        self.time_font.0,
+                        &RectF {
+                            x: x * sf,
+                            y: row_y * sf,
+                            width: cell * sf,
+                            height: 40. * sf,
+                        },
+                        format,
+                        time_brush,
+                    );
+                    x += cell;
+                }
+                let date = wide(&date_text(*time));
+                status |= GdipDrawString(
+                    g,
+                    date.as_ptr(),
+                    (date.len() - 1) as i32,
+                    self.detail_font.0,
+                    &RectF {
+                        x: 166. * sf,
+                        y: (row_y + 9.) * sf,
+                        width: 184. * sf,
+                        height: 25. * sf,
+                    },
+                    format,
+                    detail_brush,
+                );
             }
-            GdipDeleteBrush(brush);
-            GdipCreateSolidFill(0xebffffff, &mut brush);
-            GdipSetStringFormatAlign(format, 0);
-            let date = wide(&if t.year == 0 {
-                "--月--日  周-".to_string()
-            } else {
-                format!("{}月{}日  周{}", t.month, t.day, weekday(t.weekday))
-            });
-            status |= GdipDrawString(
-                g,
-                date.as_ptr(),
-                (date.len() - 1) as i32,
-                self.date_font.0,
-                &RectF {
-                    x: 16. * sf,
-                    y: 40. * sf,
-                    width: 148. * sf,
-                    height: 28. * sf,
-                },
-                format,
-                brush,
-            );
-            GdipDeleteBrush(brush);
+            GdipDeleteBrush(time_brush);
+            GdipDeleteBrush(detail_brush);
             GdipDeleteStringFormat(format);
             GdipDeleteGraphics(g);
             GdipDisposeImage(image);
             checked(status, "Draw clock")?;
-            match_row_width(
-                &mut high,
-                sw as usize,
-                0,
-                (42. * sf).ceil() as usize,
-                (40. * sf).floor() as usize,
-                (72. * sf).ceil() as usize,
-            );
             for y in 0..h as usize {
                 for x in 0..w as usize {
                     let i = y * 2 * sw as usize + x * 2;
@@ -403,57 +418,6 @@ impl Renderer {
         }
     }
 }
-fn match_row_width(
-    pixels: &mut [u32],
-    width: usize,
-    time_top: usize,
-    time_bottom: usize,
-    date_top: usize,
-    date_bottom: usize,
-) {
-    let bounds = |data: &[u32], top: usize, bottom: usize| {
-        let (mut left, mut right) = (width, 0usize);
-        for y in top.min(data.len() / width)..bottom.min(data.len() / width) {
-            for x in 0..width {
-                if data[y * width + x] >> 24 != 0 {
-                    left = left.min(x);
-                    right = right.max(x + 1);
-                }
-            }
-        }
-        (left < right).then_some((left, right))
-    };
-    let (Some((target_left, target_right)), Some((source_left, source_right))) = (
-        bounds(pixels, time_top, time_bottom),
-        bounds(pixels, date_top, date_bottom),
-    ) else {
-        return;
-    };
-    let target_width = target_right - target_left;
-    let source_width = source_right - source_left;
-    if target_width == 0 || source_width == 0 {
-        return;
-    }
-    for y in date_top.min(pixels.len() / width)..date_bottom.min(pixels.len() / width) {
-        let row = y * width;
-        let source = pixels[row + source_left..row + source_right].to_vec();
-        pixels[row + source_left..row + source_right].fill(0);
-        for dx in 0..target_width {
-            let src_x = ((dx as f32 + 0.5) * source_width as f32 / target_width as f32 - 0.5)
-                .clamp(0., source_width.saturating_sub(1) as f32);
-            let lo = src_x.floor() as usize;
-            let hi = (lo + 1).min(source_width - 1);
-            let mix = src_x - lo as f32;
-            let a = (source[lo] >> 24) as f32 * (1. - mix) + (source[hi] >> 24) as f32 * mix;
-            let alpha = a.round() as u32;
-            pixels[row + target_left + dx] = if alpha == 0 {
-                0
-            } else {
-                (alpha << 24) | 0x00ff_ffff
-            };
-        }
-    }
-}
 fn sample_pixels(data: &[u32], current: &[u32], w: usize, h: usize, factor: f32) -> Option<u8> {
     let mut samples = Vec::new();
     // Ignore our glyphs AND their shadows; transparent holes reveal the actual windows/wallpaper beneath.
@@ -520,23 +484,6 @@ fn blur_mask(input: &[u8], w: usize, h: usize, r: usize) -> Vec<u8> {
 mod tests {
     use super::*;
     #[test]
-    fn date_row_is_left_aligned_and_matches_time_width() {
-        let mut pixels = vec![0; 12 * 4];
-        for x in 2..9 {
-            pixels[12 + x] = 0xffff_ffff;
-        }
-        for x in 6..10 {
-            pixels[2 * 12 + x] = 0xffff_ffff;
-        }
-        match_row_width(&mut pixels, 12, 1, 2, 2, 3);
-        let find = |y: usize| {
-            let xs: Vec<_> = (0..12).filter(|x| pixels[y * 12 + x] >> 24 != 0).collect();
-            (*xs.first().unwrap(), *xs.last().unwrap())
-        };
-        assert_eq!(find(1), (2, 8));
-        assert_eq!(find(2), (2, 8));
-    }
-    #[test]
     fn samples_background_and_ignores_own_text() {
         let (w, h) = (288, 104);
         let mut background = vec![0x171b23; w * h];
@@ -568,44 +515,54 @@ mod tests {
         );
     }
     #[test]
-    fn offline_placeholder_keeps_the_two_line_layout() {
+    fn offline_placeholder_keeps_both_timezone_rows() {
         let _gdip = GdiPlus::start().unwrap();
         let mut r = Renderer::new(96, 100).unwrap();
-        r.draw(SystemTime::default(), 0xf4f6f9).unwrap();
+        r.draw(SystemTime::default(), SystemTime::default(), 0xf4f6f9)
+            .unwrap();
         let pixels = r.surface.data();
         let w = r.surface.width as usize;
-        let time_end = (42. * r.factor).round() as usize;
-        let date_start = (42. * r.factor).round() as usize;
-        assert!(pixels[..w * time_end].iter().any(|p| *p >> 24 > 180));
-        assert!(pixels[w * date_start..].iter().any(|p| *p >> 24 > 180));
+        let second_row = (48. * r.factor).round() as usize;
+        assert!(pixels[..w * second_row].iter().any(|p| *p >> 24 > 180));
+        assert!(pixels[w * second_row..].iter().any(|p| *p >> 24 > 180));
     }
 
     #[test]
-    fn rendered_clock_has_transparency_and_two_rows() {
+    fn rendered_clock_has_transparency_and_both_timezone_rows() {
         let _gdip = GdiPlus::start().unwrap();
         let mut r = Renderer::new(96, 100).unwrap();
-        r.draw(
-            SystemTime {
-                year: 2026,
-                month: 10,
-                day: 19,
-                weekday: 1,
-                hour: 23,
-                minute: 59,
-                second: 59,
-                ..Default::default()
-            },
-            0xf4f6f9,
-        )
-        .unwrap();
+        let local = SystemTime {
+            year: 2026,
+            month: 10,
+            day: 28,
+            weekday: 3,
+            hour: 14,
+            minute: 3,
+            second: 19,
+            ..Default::default()
+        };
+        let beijing = SystemTime {
+            year: 2026,
+            month: 10,
+            day: 29,
+            weekday: 4,
+            hour: 5,
+            minute: 3,
+            second: 19,
+            ..Default::default()
+        };
+        assert_eq!(time_text(local), "14:03:19");
+        assert_eq!(date_text(local), "10月28日 周3");
+        assert_eq!(time_text(beijing), "05:03:19");
+        assert_eq!(date_text(beijing), "10月29日 周4");
+        r.draw(local, beijing, 0xf4f6f9).unwrap();
         let pixels = r.surface.data();
         let w = r.surface.width as usize;
         let h = r.surface.height as usize;
         assert!(pixels.iter().filter(|p| **p >> 24 <= 3).count() > pixels.len() / 2);
-        let time_end = (42. * r.factor).round() as usize;
-        let date_start = (42. * r.factor).round() as usize;
-        assert!(pixels[..w * time_end].iter().any(|p| *p >> 24 > 200));
-        assert!(pixels[w * date_start..].iter().any(|p| *p >> 24 > 180));
+        let second_row = (48. * r.factor).round() as usize;
+        assert!(pixels[..w * second_row].iter().any(|p| *p >> 24 > 200));
+        assert!(pixels[w * second_row..].iter().any(|p| *p >> 24 > 180));
         assert!(pixels[..w].iter().all(|p| *p >> 24 <= 3));
         assert!(pixels[(h - 1) * w..].iter().all(|p| *p >> 24 <= 3));
     }

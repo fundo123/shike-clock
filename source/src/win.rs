@@ -43,6 +43,11 @@ pub struct SystemTime {
     pub second: u16,
     pub millis: u16,
 }
+pub fn local_time() -> SystemTime {
+    let mut time = SystemTime::default();
+    unsafe { GetLocalTime(&mut time) };
+    time
+}
 #[repr(C)]
 #[derive(Default)]
 pub struct Msg {
@@ -252,6 +257,7 @@ extern "system" {
 extern "system" {
     pub fn GetModuleHandleW(name: *const u16) -> Handle;
     pub fn GetLastError() -> u32;
+    pub fn GetLocalTime(time: *mut SystemTime);
 }
 #[link(name = "advapi32")]
 extern "system" {

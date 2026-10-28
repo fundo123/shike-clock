@@ -51,7 +51,7 @@ pub fn fetch_beijing_time() -> Result<i64, String> {
 
 fn https_get_beijing_time() -> Result<String, String> {
     unsafe {
-        let agent = wide("ShikeClock/1.1");
+        let agent = wide("ShikeClock/1.2");
         let session = InternetHandle(WinHttpOpen(agent.as_ptr(), 0, null(), null(), 0));
         if session.0.is_null() {
             return Err("无法建立网络时间连接".into());

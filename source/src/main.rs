@@ -35,7 +35,7 @@ struct App {
     renderer: Renderer,
     settings: Settings,
     light: bool,
-    last: u64,
+    last: (u64, u64),
     menu_open: bool,
     taskbar_message: u32,
     diagnostics: Option<String>,
@@ -45,6 +45,35 @@ struct App {
     sync_receiver: Receiver<Result<i64, String>>,
     sync_pending: bool,
     sync_due: Instant,
+}
+fn time_text(t: SystemTime) -> String {
+    if t.year == 0 {
+        "--:--:--".into()
+    } else {
+        format!("{:02}:{:02}:{:02}", t.hour, t.minute, t.second)
+    }
+}
+fn date_text(t: SystemTime) -> String {
+    if t.year == 0 {
+        "--月--日 周-".into()
+    } else {
+        format!(
+            "{}月{}日 周{}",
+            t.month,
+            t.day,
+            settings::weekday(t.weekday)
+        )
+    }
+}
+fn time_key(t: SystemTime) -> u64 {
+    if t.year == 0 {
+        0
+    } else {
+        ((t.year as u64 * 13 + t.month as u64) * 32 + t.day as u64) * 86_400
+            + t.hour as u64 * 3_600
+            + t.minute as u64 * 60
+            + t.second as u64
+    }
 }
 impl App {
     fn color(&self) -> u32 {
@@ -63,19 +92,13 @@ impl App {
     }
     fn tick(&mut self, force: bool) {
         self.update_online_clock();
-        let t = self
+        let local = local_time();
+        let beijing = self
             .online_clock
             .as_ref()
             .map(OnlineClock::now)
             .unwrap_or_default();
-        let key = if t.year == 0 {
-            0
-        } else {
-            ((t.year as u64 * 13 + t.month as u64) * 32 + t.day as u64) * 86400
-                + t.hour as u64 * 3600
-                + t.minute as u64 * 60
-                + t.second as u64
-        };
+        let key = (time_key(local), time_key(beijing));
         if !force && key == self.last {
             return;
         }
@@ -91,13 +114,13 @@ impl App {
         let color = self.color();
         let result = self
             .renderer
-            .draw(t, color)
+            .draw(local, beijing, color)
             .and_then(|_| self.renderer.update(self.hwnd));
         if let Err(e) = result {
             self.error = Some(e)
         }
         if self.diagnostics.is_some() {
-            self.write_diagnostics(t, brightness)
+            self.write_diagnostics(local, beijing, brightness)
         }
     }
     fn update_online_clock(&mut self) {
@@ -126,31 +149,32 @@ impl App {
             });
         }
     }
-    fn write_diagnostics(&self, t: SystemTime, brightness: Option<u8>) {
+    fn write_diagnostics(&self, local: SystemTime, beijing: SystemTime, brightness: Option<u8>) {
         if let Some(ref path) = self.diagnostics {
             let mut r = Rect::default();
             unsafe { GetWindowRect(self.hwnd, &mut r) };
-            let time = if t.year == 0 {
-                "--:--:--".to_string()
-            } else {
-                format!("{:02}:{:02}:{:02}", t.hour, t.minute, t.second)
-            };
-            let date = if t.year == 0 {
-                "--月--日 周-".to_string()
-            } else {
-                format!(
-                    "{}月{}日 周{}",
-                    t.month,
-                    t.day,
-                    settings::weekday(t.weekday)
-                )
-            };
-            let source = if t.year == 0 {
+            let beijing_time = time_text(beijing);
+            let beijing_date = date_text(beijing);
+            let source = if beijing.year == 0 {
                 "waiting_for_network"
             } else {
                 "online"
             };
-            let data=format!("{{\"time\":\"{}\",\"date\":\"{}\",\"time_source\":\"{}\",\"light_text\":{},\"brightness\":{},\"color\":\"{:06X}\",\"x\":{},\"y\":{},\"width\":{},\"height\":{},\"dpi\":{},\"scale\":{},\"error\":{}}}",time,date,source,self.light,brightness.map(|v|v.to_string()).unwrap_or("null".into()),self.color(),r.left,r.top,self.renderer.surface.width,self.renderer.surface.height,unsafe{GetDpiForWindow(self.hwnd)},self.settings.scale,if self.error.is_some(){"true"}else{"null"});
+            let data = format!(
+                "{{\"time\":\"{beijing_time}\",\"date\":\"{beijing_date}\",\"local_time\":\"{}\",\"local_date\":\"{}\",\"beijing_time\":\"{beijing_time}\",\"beijing_date\":\"{beijing_date}\",\"time_source\":\"{source}\",\"light_text\":{},\"brightness\":{},\"color\":\"{:06X}\",\"x\":{},\"y\":{},\"width\":{},\"height\":{},\"dpi\":{},\"scale\":{},\"error\":{}}}",
+                time_text(local),
+                date_text(local),
+                self.light,
+                brightness.map(|v| v.to_string()).unwrap_or("null".into()),
+                self.color(),
+                r.left,
+                r.top,
+                self.renderer.surface.width,
+                self.renderer.surface.height,
+                unsafe { GetDpiForWindow(self.hwnd) },
+                self.settings.scale,
+                if self.error.is_some() { "true" } else { "null" }
+            );
             let _ = std::fs::write(path, data);
         }
     }
@@ -551,7 +575,11 @@ fn run() -> Result<(), String> {
         } else {
             0xf4f6f9
         };
-        renderer.draw(OnlineClock::new(fetch_beijing_time()?).now(), color)?;
+        renderer.draw(
+            local_time(),
+            OnlineClock::new(fetch_beijing_time()?).now(),
+            color,
+        )?;
         return renderer.surface.save_png(path);
     }
     unsafe {
@@ -624,7 +652,7 @@ fn run() -> Result<(), String> {
             renderer,
             settings,
             light: true,
-            last: 0,
+            last: (0, 0),
             menu_open: false,
             taskbar_message: RegisterWindowMessageW(wide("TaskbarCreated").as_ptr()),
             diagnostics,
