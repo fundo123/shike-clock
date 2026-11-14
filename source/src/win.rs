@@ -176,6 +176,8 @@ pub struct NotifyIcon {
 
 #[link(name = "user32")]
 extern "system" {
+    pub fn RegisterHotKey(hwnd: Handle, id: i32, modifiers: u32, key: u32) -> i32;
+    pub fn UnregisterHotKey(hwnd: Handle, id: i32) -> i32;
     pub fn RegisterClassExW(class: *const WndClass) -> u16;
     pub fn CreateWindowExW(
         ex: u32,
@@ -252,6 +254,17 @@ extern "system" {
     pub fn FindWindowW(class: *const u16, title: *const u16) -> Handle;
     pub fn MessageBoxW(hwnd: Handle, text: *const u16, title: *const u16, flags: u32) -> i32;
     pub fn RegisterWindowMessageW(name: *const u16) -> u32;
+}
+#[link(name = "shell32")]
+extern "system" {
+    pub fn ShellExecuteW(
+        hwnd: Handle,
+        operation: *const u16,
+        file: *const u16,
+        parameters: *const u16,
+        directory: *const u16,
+        show: i32,
+    ) -> Handle;
 }
 #[link(name = "kernel32")]
 extern "system" {

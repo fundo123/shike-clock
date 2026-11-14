@@ -29,6 +29,26 @@ const TOP: usize = 201;
 const RESET: usize = 202;
 const STARTUP: usize = 203;
 const QUIT: usize = 299;
+const SCREENSHOT: usize = 204;
+
+unsafe fn screenshot(hwnd: Handle) {
+    if ShellExecuteW(
+        hwnd,
+        wide("open").as_ptr(),
+        wide("ms-screenclip:").as_ptr(),
+        null(),
+        null(),
+        1,
+    ) <= 32
+    {
+        MessageBoxW(
+            hwnd,
+            wide("无法启动 Windows 截图工具，请确认截图工具已安装。 ").as_ptr(),
+            wide(TITLE).as_ptr(),
+            0x10,
+        );
+    }
+}
 
 struct App {
     hwnd: Handle,
@@ -382,6 +402,7 @@ unsafe fn menu(hwnd: Handle, point: Point) {
     AppendMenuW(popup, 0x800, 0, null());
     append(popup, TOP, "始终置顶", settings.topmost);
     append(popup, RESET, "找回到主屏右上角", false);
+    append(popup, SCREENSHOT, "区域截图  Alt+A", false);
     AppendMenuW(popup, 0x800, 0, null());
     append(popup, STARTUP, "开机自动启动", settings.autostart);
     AppendMenuW(popup, 0x800, 0, null());
@@ -401,6 +422,10 @@ unsafe fn apply_command(hwnd: Handle, id: usize) {
         return;
     }
     match id {
+        SCREENSHOT => {
+            screenshot(hwnd);
+            return;
+        }
         AUTO => (*ptr).settings.mode = ColorMode::Auto,
         LIGHT => (*ptr).settings.mode = ColorMode::Light,
         DARK => (*ptr).settings.mode = ColorMode::Dark,
@@ -471,6 +496,10 @@ unsafe extern "system" fn wndproc(hwnd: Handle, msg: u32, w: usize, l: isize) ->
         return 0;
     }
     match msg {
+        0x0312 if w == SCREENSHOT => {
+            screenshot(hwnd);
+            0
+        }
         0x0014 => 1, // No opaque erase or background brush.
         0x0084 => 1, // Client area; the one-alpha plane accepts drags between glyphs.
         0x0021 => 3, // MA_NOACTIVATE: dragging the clock preserves the working app's focus.
@@ -554,6 +583,7 @@ unsafe extern "system" fn wndproc(hwnd: Handle, msg: u32, w: usize, l: isize) ->
             0
         }
         0x0002 => {
+            UnregisterHotKey(hwnd, SCREENSHOT as i32);
             KillTimer(hwnd, 1);
             (*ptr).remember();
             (*ptr).tray(2);
@@ -684,6 +714,9 @@ fn run() -> Result<(), String> {
         }
         ShowWindow(hwnd, 4);
         app.tray(0);
+        if RegisterHotKey(hwnd, SCREENSHOT as i32, 0x0001 | 0x4000, 0x41) == 0 {
+            MessageBoxW(hwnd, wide("Alt+A 已被其他程序占用。请在拾刻右键菜单中使用区域截图，或关闭其他程序的 Alt+A 快捷键后重新启动拾刻。").as_ptr(), wide(TITLE).as_ptr(), 0x30);
+        }
         SetTimer(hwnd, 1, 250, 0);
         let mut msg = Msg::default();
         loop {
