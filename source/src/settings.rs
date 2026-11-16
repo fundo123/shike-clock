@@ -18,6 +18,8 @@ pub struct Settings {
     pub topmost: bool,
     pub placed: bool,
     pub autostart: bool,
+    pub hotkey_mod: u32,
+    pub hotkey_key: u32,
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -30,6 +32,8 @@ impl Default for Settings {
             topmost: true,
             placed: false,
             autostart: true,
+            hotkey_mod: 1,
+            hotkey_key: 65,
         }
     }
 }
@@ -69,6 +73,18 @@ impl Settings {
                     }
                     "topmost" => s.topmost = v.trim() != "false",
                     "placed" => s.placed = v.trim() == "true",
+                    "hotkey_mod" => {
+                        let n = v.trim().parse().unwrap_or(1);
+                        if (1..=7).contains(&n) {
+                            s.hotkey_mod = n;
+                        }
+                    }
+                    "hotkey_key" => {
+                        let n = v.trim().parse().unwrap_or(65);
+                        if (48..=90).contains(&n) || (112..=123).contains(&n) {
+                            s.hotkey_key = n;
+                        }
+                    }
                     "autostart" => s.autostart = v.trim() == "true",
                     _ => {}
                 }
@@ -92,8 +108,8 @@ impl Settings {
         };
         let text =
             format!(
-            "x={}\ny={}\nscale={}\ncolor={}\ncustom={:06X}\ntopmost={}\nplaced={}\nautostart={}\n",
-            self.x, self.y, self.scale, mode, self.custom, self.topmost, self.placed, self.autostart
+            "x={}\ny={}\nscale={}\ncolor={}\ncustom={:06X}\ntopmost={}\nplaced={}\nautostart={}\nhotkey_mod={}\nhotkey_key={}\n",
+            self.x, self.y, self.scale, mode, self.custom, self.topmost, self.placed, self.autostart, self.hotkey_mod, self.hotkey_key
         );
         let temp = path.with_extension("tmp");
         fs::write(&temp, text)?;

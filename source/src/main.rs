@@ -30,7 +30,91 @@ const RESET: usize = 202;
 const STARTUP: usize = 203;
 const QUIT: usize = 299;
 const SCREENSHOT: usize = 204;
+const HOTKEY_CONFIG: usize = 205;
 
+fn parse_hotkey(value: &str) -> Option<(u32, u32)> {
+    let mut modifiers = 0;
+    let mut key = None;
+    for part in value.trim().split('+') {
+        let part = part.trim().to_ascii_uppercase();
+        match part.as_str() {
+            "ALT" => modifiers |= 1,
+            "CTRL" | "CONTROL" => modifiers |= 2,
+            "SHIFT" => modifiers |= 4,
+            _ => {
+                if key.is_some() {
+                    return None;
+                }
+                let bytes = part.as_bytes();
+                key = if bytes.len() == 1 && bytes[0].is_ascii_alphanumeric() {
+                    Some(bytes[0] as u32)
+                } else if let Some(n) = part.strip_prefix('F').and_then(|s| s.parse::<u32>().ok()) {
+                    if (1..=12).contains(&n) {
+                        Some(111 + n)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                key?;
+            }
+        }
+    }
+    if modifiers == 0 {
+        None
+    } else {
+        key.map(|k| (modifiers, k))
+    }
+}
+unsafe fn configure_hotkey(hwnd: Handle, ptr: *mut App) {
+    use std::os::windows::process::CommandExt;
+    let script = "Add-Type -AssemblyName Microsoft.VisualBasic; [Console]::OutputEncoding=[Text.Encoding]::UTF8; [Microsoft.VisualBasic.Interaction]::InputBox('输入组合键，例如 Ctrl+Shift+A 或 Alt+F2','设置截图快捷键','Alt+A')";
+    let output = std::process::Command::new("powershell.exe")
+        .args(["-NoProfile", "-STA", "-Command", script])
+        .creation_flags(0x08000000)
+        .output();
+    let Ok(output) = output else {
+        return;
+    };
+    let text = String::from_utf8_lossy(&output.stdout);
+    if text.trim().is_empty() {
+        return;
+    }
+    let Some((mods, key)) = parse_hotkey(&text) else {
+        MessageBoxW(
+            hwnd,
+            wide("格式无效，请输入 Ctrl、Alt 或 Shift 加字母、数字或 F1-F12，例如 Ctrl+Shift+A。")
+                .as_ptr(),
+            wide(TITLE).as_ptr(),
+            0x30,
+        );
+        return;
+    };
+    let old_mod = (*ptr).settings.hotkey_mod;
+    let old_key = (*ptr).settings.hotkey_key;
+    UnregisterHotKey(hwnd, SCREENSHOT as i32);
+    if RegisterHotKey(hwnd, SCREENSHOT as i32, mods | 0x4000, key) == 0 {
+        let restored = RegisterHotKey(hwnd, SCREENSHOT as i32, old_mod | 0x4000, old_key) != 0;
+        let message = if restored {
+            "快捷键已被占用，原快捷键仍可使用。"
+        } else {
+            "快捷键已被占用，原快捷键也无法恢复，请重新设置。"
+        };
+        MessageBoxW(hwnd, wide(message).as_ptr(), wide(TITLE).as_ptr(), 0x30);
+        return;
+    }
+    (*ptr).settings.hotkey_mod = mods;
+    (*ptr).settings.hotkey_key = key;
+    if (*ptr).settings.save().is_err() {
+        MessageBoxW(
+            hwnd,
+            wide("快捷键已生效，但保存失败，重启后可能失效。").as_ptr(),
+            wide(TITLE).as_ptr(),
+            0x30,
+        );
+    }
+}
 unsafe fn screenshot(hwnd: Handle) {
     if ShellExecuteW(
         hwnd,
@@ -402,7 +486,8 @@ unsafe fn menu(hwnd: Handle, point: Point) {
     AppendMenuW(popup, 0x800, 0, null());
     append(popup, TOP, "始终置顶", settings.topmost);
     append(popup, RESET, "找回到主屏右上角", false);
-    append(popup, SCREENSHOT, "区域截图  Alt+A", false);
+    append(popup, SCREENSHOT, "区域截图", false);
+    append(popup, HOTKEY_CONFIG, "设置截图快捷键…", false);
     AppendMenuW(popup, 0x800, 0, null());
     append(popup, STARTUP, "开机自动启动", settings.autostart);
     AppendMenuW(popup, 0x800, 0, null());
@@ -422,6 +507,10 @@ unsafe fn apply_command(hwnd: Handle, id: usize) {
         return;
     }
     match id {
+        HOTKEY_CONFIG => {
+            configure_hotkey(hwnd, ptr);
+            return;
+        }
         SCREENSHOT => {
             screenshot(hwnd);
             return;
@@ -714,8 +803,19 @@ fn run() -> Result<(), String> {
         }
         ShowWindow(hwnd, 4);
         app.tray(0);
-        if RegisterHotKey(hwnd, SCREENSHOT as i32, 0x0001 | 0x4000, 0x41) == 0 {
-            MessageBoxW(hwnd, wide("Alt+A 已被其他程序占用。请在拾刻右键菜单中使用区域截图，或关闭其他程序的 Alt+A 快捷键后重新启动拾刻。").as_ptr(), wide(TITLE).as_ptr(), 0x30);
+        if RegisterHotKey(
+            hwnd,
+            SCREENSHOT as i32,
+            app.settings.hotkey_mod | 0x4000,
+            app.settings.hotkey_key,
+        ) == 0
+        {
+            MessageBoxW(
+                hwnd,
+                wide("截图快捷键已被其他程序占用，请在右键菜单重新设置，或使用菜单截图。").as_ptr(),
+                wide(TITLE).as_ptr(),
+                0x30,
+            );
         }
         SetTimer(hwnd, 1, 250, 0);
         let mut msg = Msg::default();
