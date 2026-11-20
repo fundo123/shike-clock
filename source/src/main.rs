@@ -67,11 +67,38 @@ fn parse_hotkey(value: &str) -> Option<(u32, u32)> {
         key.map(|k| (modifiers, k))
     }
 }
+fn format_hotkey(modifiers: u32, key: u32) -> String {
+    let mut parts = Vec::new();
+    if modifiers & 2 != 0 {
+        parts.push("Ctrl".to_string());
+    }
+    if modifiers & 1 != 0 {
+        parts.push("Alt".to_string());
+    }
+    if modifiers & 4 != 0 {
+        parts.push("Shift".to_string());
+    }
+    parts.push(if (112..=123).contains(&key) {
+        format!("F{}", key - 111)
+    } else {
+        char::from_u32(key).unwrap_or('A').to_string()
+    });
+    parts.join("+")
+}
+#[cfg(test)]
+#[test]
+fn configured_hotkeys_show_current_value() {
+    for value in ["Alt+Q", "Ctrl+Shift+A", "Ctrl+Alt+F12"] {
+        let (modifiers, key) = parse_hotkey(value).unwrap();
+        assert_eq!(format_hotkey(modifiers, key), value);
+    }
+}
 unsafe fn configure_hotkey(hwnd: Handle, ptr: *mut App) {
     use std::os::windows::process::CommandExt;
-    let script = "Add-Type -AssemblyName Microsoft.VisualBasic; [Console]::OutputEncoding=[Text.Encoding]::UTF8; [Microsoft.VisualBasic.Interaction]::InputBox('输入组合键，例如 Ctrl+Shift+A 或 Alt+F2','设置截图快捷键','Alt+A')";
+    let current = format_hotkey((*ptr).settings.hotkey_mod, (*ptr).settings.hotkey_key);
+    let script = format!("Add-Type -AssemblyName Microsoft.VisualBasic; [Console]::OutputEncoding=[Text.Encoding]::UTF8; [Microsoft.VisualBasic.Interaction]::InputBox('输入组合键，例如 Ctrl+Shift+A 或 Alt+F2','设置截图快捷键','{current}')");
     let output = std::process::Command::new("powershell.exe")
-        .args(["-NoProfile", "-STA", "-Command", script])
+        .args(["-NoProfile", "-STA", "-Command", &script])
         .creation_flags(0x08000000)
         .output();
     let Ok(output) = output else {
