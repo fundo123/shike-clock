@@ -176,6 +176,7 @@ struct App {
     sync_receiver: Receiver<Result<i64, String>>,
     sync_pending: bool,
     sync_due: Instant,
+    next_raise: Instant,
 }
 fn time_text(t: SystemTime) -> String {
     if t.year == 0 {
@@ -645,7 +646,11 @@ unsafe extern "system" fn wndproc(hwnd: Handle, msg: u32, w: usize, l: isize) ->
         }
         0x0113 => {
             if !(*ptr).menu_open {
-                (*ptr).tick(false)
+                (*ptr).tick(false);
+                if (*ptr).settings.topmost && Instant::now() >= (*ptr).next_raise {
+                    (*ptr).raise_if_topmost();
+                    (*ptr).next_raise = Instant::now() + std::time::Duration::from_secs(2);
+                }
             }
             0
         }
@@ -808,6 +813,7 @@ fn run() -> Result<(), String> {
             sync_receiver,
             sync_pending: false,
             sync_due: Instant::now(),
+            next_raise: Instant::now(),
         });
         let ptr = &mut *app as *mut App;
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, ptr as isize);
